@@ -242,7 +242,7 @@ void restoreDirectory(char* path, int size, int max_length, directory_table* dTa
 	snprintf(new_path, max_length, "%s%c%s", path, solidus, dir_name);
 	struct stat st = {0};
 	if (stat(new_path, &st) == -1) {
-		int e = mkdir(new_path, 0700);
+		int e = makeDirectory(new_path);
 	}
 
 
@@ -269,8 +269,8 @@ void restoreFiles(const char* buffer, head_table* hTable, string_table* sTable, 
 			continue;
 		}
 
-		if (fchmod(fd, mTable->array[i].permission) == -1) {
-			perror("fchmod");
+		if (chmod(l, mTable->array[i].permission) == -1) {
+			perror("chmod");
 			fclose(f);
 			continue;
 		}
@@ -313,7 +313,6 @@ Archive loadArchiveFromDirectory(const char* directory)
 		if(*str == 0) { break;}
 		if(*(str++) == DEFAULT_SOLIDIUS) {start_of_path = str;}
 	}
-	printf("%s\n", start_of_path);
 	addWord(&sTable, start_of_path);
 	addDirectory(&dTable, dNode);
 	ListDirectoryContents(directory, &max_length, &total_size, &sTable, &dTable, &mTable, &fTable, 0, strlen(directory) - 1);
@@ -482,12 +481,11 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	path[dir_len] = '\0';
 	struct stat st = {0};
 	if (stat(path, &st) == -1) {
-		int e = mkdir(path, 0700);
+		int e = makeDirectory(path);
 	}
 
 	path[dir_len] = DEFAULT_SOLIDIUS;
 	path[dir_len + 1] = '\0';  // Null-terminate after the separator
-	printf("%s\n", path);
 
 	int index = 0;
 	restoreDirectory(path, dir_len, archive.hTable.max_length, &archive.dTable, &archive.sTable, &index, DEFAULT_SOLIDIUS);

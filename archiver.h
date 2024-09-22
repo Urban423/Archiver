@@ -3,6 +3,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+
+#ifdef windows
+	#define makeDirectory(X) mkdir(X)
+#elif 
+	#define makeDirectory(X) _mkdir(X, 0x700)
+#endif
+
+
 #define DEFAULT_SOLIDIUS '/'
 #define FILE_OK 0
 #define FILE_ERROR 1
@@ -59,7 +67,7 @@ typedef struct metadata {
 	unsigned int offset;
 	unsigned int size;
 	unsigned char type;
-	mode_t permission;
+	unsigned int permission;
 } metadata;
 
 typedef struct metadata_table {

@@ -1,17 +1,32 @@
 Target = myarc
 CC = gcc
 build = ./build/
+OS = windows
+FORMAT = c
+
 
 bin = ./bin/
 folders += ${bin}
 folders += ${build}
 
-SCR += ${wildcard *.c}
-OBJ += ${patsubst %.c,${bin}%.o, ${SCR}}
+SCR += ${wildcard *.$(FORMAT)}
+OBJ += ${patsubst %.$(FORMAT),${bin}%.o, ${SCR}}
 OBJ_DEL += ${subst /,\, ${OBJ}}
+FOLDERS  = ${subst /,\, ${folders}}
 
 DFlags += -D windows
 CFlags += -O3 
+
+
+ifeq ($(OS),windows)
+    MKDIR = mkdir
+	DEL= del
+else
+    MKDIR = mkdir -p
+	DEL = rm -f
+endif
+
+
 
 buildApp: binFile clear appBuilder
 	${build}${Target} -p -w -f ${build}arhice.arc -d ./testDir
@@ -24,11 +39,10 @@ libBuilder: ${OBJ}
 	ar rcs ${libpath}lib${Target}.a ${OBJ}
 
 binFile: 
-	@mkdir -p ${folders}
+	@for %%d in ($(FOLDERS)) do if not exist %%d $(MKDIR) %%d
 
-${bin}%.o: %.c
+${bin}%.o: %.$(FORMAT)
 	${CC} ${IFlags} ${DFlags} -o $@ -c $< ${CFlags}
 	
 clear:
-	rm -f ${OBJ} ${build}${Target}
-	rm -f ${build}archive.arc
+	${DEL} ${OBJ_DEL}
