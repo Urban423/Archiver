@@ -6,8 +6,8 @@
 
 #ifdef windows
 	#define makeDirectory(X) mkdir(X)
-#elif 
-	#define makeDirectory(X) _mkdir(X, 0x700)
+#else 
+	#define makeDirectory(X) mkdir(X, 0700)
 #endif
 
 

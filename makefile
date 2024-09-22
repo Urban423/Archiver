@@ -1,7 +1,7 @@
 Target = myarc
 CC = gcc
 build = ./build/
-OS = windows
+OS = linux
 FORMAT = c
 
 
@@ -14,7 +14,7 @@ OBJ += ${patsubst %.$(FORMAT),${bin}%.o, ${SCR}}
 OBJ_DEL += ${subst /,\, ${OBJ}}
 FOLDERS  = ${subst /,\, ${folders}}
 
-DFlags += -D windows
+DFlags += -D linux
 CFlags += -O3 
 
 
@@ -38,8 +38,8 @@ appBuilder: ${OBJ}
 libBuilder: ${OBJ}
 	ar rcs ${libpath}lib${Target}.a ${OBJ}
 
-binFile: 
-	@for %%d in ($(FOLDERS)) do if not exist %%d $(MKDIR) %%d
+binFile:
+	
 
 ${bin}%.o: %.$(FORMAT)
 	${CC} ${IFlags} ${DFlags} -o $@ -c $< ${CFlags}

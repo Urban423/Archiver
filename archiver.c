@@ -485,7 +485,7 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	}
 
 	path[dir_len] = DEFAULT_SOLIDIUS;
-	path[dir_len + 1] = '\0';  // Null-terminate after the separator
+	path[dir_len] = '\0';  // Null-terminate after the separator
 
 	int index = 0;
 	restoreDirectory(path, dir_len, archive.hTable.max_length, &archive.dTable, &archive.sTable, &index, DEFAULT_SOLIDIUS);
