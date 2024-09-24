@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <zlib.h>
 
 
 
@@ -113,7 +113,7 @@ void addMetadata(metadata_table* mTable, metadata data)
 
 //read directories
 char ListDirectoryContents(
-    const char* path, int* max_length, int* total_size,
+    const char* path, int* max_length,
     string_table* sTable, directory_table* dTable, metadata_table* mTable, file_table* fTable,
     unsigned int parent_index, int last_size) 
 {
@@ -142,7 +142,7 @@ char ListDirectoryContents(
                     addDirectory(dTable, dNode);
                     dTable->array[parent_index].size++;
 
-                    ListDirectoryContents(subDir, max_length, total_size, sTable, dTable, mTable, fTable, dTable->size - 1, word_length + 1);
+                    ListDirectoryContents(subDir, max_length, sTable, dTable, mTable, fTable, dTable->size - 1, word_length + 1);
                 } else {
                     FILE *f = fopen(subDir, "rb");
                     if (f == NULL) {
@@ -150,16 +150,15 @@ char ListDirectoryContents(
                         return FILE_ERROR;
                     }
 
-                    addFile(fTable, f);
                     fseek(f, 0, SEEK_END);
                     unsigned int fileSize = ftell(f);
                     fseek(f, 0, SEEK_SET);
+                    addFile(fTable, f);
 
 					struct stat premission_stut;
 					stat(subDir, &premission_stut);
 					mode_t permission = premission_stut.st_mode;
-                    *total_size += fileSize;
-                    metadata data = {name_index, parent_index, 0, fileSize, 0, permission};
+                    metadata data = {name_index, parent_index, 0, fileSize, 0, permission, 0, 1};
                     addMetadata(mTable, data);
                 }
             }
@@ -254,10 +253,24 @@ void restoreDirectory(char* path, int size, int max_length, directory_table* dTa
 }
 
 //restore files from archive
-void restoreFiles(const char* buffer, head_table* hTable, string_table* sTable, directory_table* dTable, metadata_table* mTable, const char* path_start, char* path, int path_start_len)
+void restoreFiles(char* buffer, char* uncompressed_buffer, head_table* hTable, string_table* sTable, directory_table* dTable, metadata_table* mTable, const char* path_start, char* path, int path_start_len)
 {
 	for(int i = 0; i < mTable->size; i++)
 	{
+		//uncompress data
+		if(mTable->array[i].compressed_size == 0) { continue;}
+		long unsigned int decompressed_len = mTable->array[i].size;
+		int e = uncompress(uncompressed_buffer, &decompressed_len, buffer, mTable->array[i].compressed_size);
+		if (e != Z_OK) {
+			printf("Decompression failed with error code %d\n", e);
+			return;
+    	}
+		//printf("%s %s %d %ld\n", buffer, uncompressed_buffer, mTable->array[i].compressed_size, decompressed_len);
+
+
+
+
+
 		char* l = buildPathReverse(sTable, dTable,  mTable->array[i], path_start,  path, hTable->max_length + path_start_len);
 		FILE* f = fopen(l, "wb");
 		if(f == NULL) {continue; }
@@ -269,13 +282,14 @@ void restoreFiles(const char* buffer, head_table* hTable, string_table* sTable, 
 			continue;
 		}
 
-		if (chmod(l, mTable->array[i].permission) == -1) {
-			perror("chmod");
-			fclose(f);
-			continue;
-		}
 
-		fwrite(buffer, mTable->array[i].size, 1, f);
+
+		//if (chmod(l, mTable->array[i].permission) == -1) {
+		//	perror("chmod");
+		//	fclose(f);
+		//	continue;
+		//}
+		fwrite(uncompressed_buffer, decompressed_len, 1, f);
 		fclose(f);
 	}
 }
@@ -315,7 +329,7 @@ Archive loadArchiveFromDirectory(const char* directory)
 	}
 	addWord(&sTable, start_of_path);
 	addDirectory(&dTable, dNode);
-	ListDirectoryContents(directory, &max_length, &total_size, &sTable, &dTable, &mTable, &fTable, 0, strlen(directory) - 1);
+	ListDirectoryContents(directory, &max_length, &sTable, &dTable, &mTable, &fTable, 0, strlen(directory) - 1);
 	hTable.max_length = max_length;
 	hTable.offset_table_offset = 8 + sizeof(head_table);
 	
@@ -335,14 +349,39 @@ Archive loadArchiveFromDirectory(const char* directory)
 	head_size += mTable.size * sizeof(metadata); // metadata table
 	//files already inside
 	
-	
+
+	for(int i = 0; i < mTable.size; i++) {
+        if (mTable.array[i].size == 0) {
+            mTable.array[i].compressed_size = 0;
+			continue;
+        } else {
+            mTable.array[i].compressed_size = compressBound(mTable.array[i].size);
+        }
+		if(hTable.max_file_size < mTable.array[i].size) {
+			hTable.max_file_size = mTable.array[i].size;
+		}
+        total_size += mTable.array[i].compressed_size;
+    }
 	char* buffer = malloc(total_size);
+	char* read_buffer = malloc(hTable.max_file_size);
 	int byte_offset = 0;
 	for(int i = 0; i < mTable.size; i++) {
+		if(mTable.array[i].size == 0) { continue;}
 		mTable.array[i].offset = byte_offset;
-		int e = fread(buffer + byte_offset, mTable.array[i].size, 1, fTable.array[i]);
+		int e = fread(read_buffer, mTable.array[i].size, 1, fTable.array[i]);
+		long unsigned int compressed_file_size = mTable.array[i].compressed_size;
+		if(mTable.array[i].compression) {
+			e = compress(buffer + byte_offset, &compressed_file_size, (const unsigned char*)read_buffer, mTable.array[i].size);
+			byte_offset += compressed_file_size;
+			if (e != Z_OK) {
+				printf("Compression failed with error code %d\n", e);
+			}
+			mTable.array[i].compressed_size = compressed_file_size;
+		}
+		else {
+			byte_offset += mTable.array[i].size;
+		}
 		fclose(fTable.array[i]);
-		byte_offset += mTable.array[i].size;
 	};
 	
 	Tables[2].size 		= mTable.size * sizeof(metadata);
@@ -417,7 +456,7 @@ Archive loadArchiveFromFile(const char* file)
 		total_size += mTable.array[i].size;
 	}
 	int  offset = 0;
-	char* buffer = malloc(total_size);
+	char* buffer = malloc(total_size + 1000);
 	for(int i = 0; i < mTable.size; i++)
 	{
 		fseek(f, mTable.array[i].offset, SEEK_SET);
@@ -457,7 +496,7 @@ void saveArchiveAsFile(Archive archive, const char* file)
 	int byte_offset = head_size;
 	for(int i = 0; i < mTable.size; i++) {
 		mTable.array[i].offset = byte_offset;
-		byte_offset += mTable.array[i].size; 
+		byte_offset += mTable.array[i].compressed_size; 
 	};
 	memcpy(buffer + Tables[2].offset, mTable.array, Tables[2].size);	// metadata
 	memcpy(buffer + Tables[1].offset, dTable.array, Tables[1].size);	// directory table
@@ -476,6 +515,7 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	int dir_len = strlen(directory);
 	int max_length = archive.hTable.max_length + dir_len + 2;
 	char* path = malloc(max_length);
+	char* uncompressed_buffer = malloc(archive.hTable.max_file_size);
 
 	memcpy(path, directory, dir_len);
 	path[dir_len] = '\0';
@@ -485,13 +525,11 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	}
 
 	path[dir_len] = DEFAULT_SOLIDIUS;
-	path[dir_len] = '\0';  // Null-terminate after the separator
+	path[dir_len] = '\0';
 
 	int index = 0;
 	restoreDirectory(path, dir_len, archive.hTable.max_length, &archive.dTable, &archive.sTable, &index, DEFAULT_SOLIDIUS);
-
-	// Restore files using the updated directory path
-	restoreFiles(archive.bufferFileData, &archive.hTable, &archive.sTable, &archive.dTable, &archive.mTable, directory, path, dir_len);
+	restoreFiles(archive.bufferFileData, uncompressed_buffer, &archive.hTable, &archive.sTable, &archive.dTable, &archive.mTable, directory, path, dir_len);
 
 	free(path);
 }
@@ -504,7 +542,7 @@ void printArchive(Archive* archive, const char* path_start)
 	char* buffer = malloc(path_start_len + archive->hTable.max_length);
 	
 	printf("%d\n", (int)archive->signature);
-	printf("%d %d %d %d %d %d\n",  archive->hTable.offset_table_offset,  archive->hTable.number_of_tables,  archive->hTable.max_length, archive->hTable.total_size, archive->hTable.total_files_size,  archive->hTable.version);
+	printf("%d %d %d %d %d %d %d\n",  archive->hTable.offset_table_offset,  archive->hTable.number_of_tables,  archive->hTable.max_length, archive->hTable.max_file_size, archive->hTable.total_size, archive->hTable.total_files_size,  archive->hTable.version);
 	for(int i = 0; i <  archive->hTable.number_of_tables; i++)
 	{
 		printf("%d %d %d\n",  archive->Tables[i].tag,  archive->Tables[i].size, archive->Tables[i].offset);
@@ -520,7 +558,7 @@ void printArchive(Archive* archive, const char* path_start)
 	}
 	for(int i = 0; i <  archive->mTable.size; i++)
 	{
-		printf("%d %d %d %d %d\n",  archive->mTable.array[i].name_index,   archive->mTable.array[i].directory_index,  archive->mTable.array[i].offset,  archive->mTable.array[i].size,  archive->mTable.array[i].type);
+		printf("%d %d %d %d %d %d %d %d\n",  archive->mTable.array[i].name_index,   archive->mTable.array[i].directory_index,  archive->mTable.array[i].offset,  archive->mTable.array[i].size,  archive->mTable.array[i].compressed_size, archive->mTable.array[i].permission, archive->mTable.array[i].type, archive->mTable.array[i].compression  );
 	}
 	for(int i = 0; i <  archive->mTable.size; i++)
 	{

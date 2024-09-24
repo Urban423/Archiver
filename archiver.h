@@ -32,6 +32,7 @@ typedef struct head_table {
 	unsigned int offset_table_offset;
 	unsigned int number_of_tables;
 	unsigned int max_length;
+	unsigned int max_file_size;
 	unsigned int total_size;
 	unsigned int total_files_size;
 	unsigned char version;
@@ -66,8 +67,10 @@ typedef struct metadata {
 	unsigned int directory_index;
 	unsigned int offset;
 	unsigned int size;
-	unsigned char type;
+	unsigned int compressed_size;
 	unsigned int permission;
+	unsigned char type;
+	unsigned char compression;
 } metadata;
 
 typedef struct metadata_table {

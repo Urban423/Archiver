@@ -1,0 +1,1 @@
+Level of unstable noise(number) which is showing the influence on human as constant in the time of work. Tonal noises are more agressive so we should substract 65 Db

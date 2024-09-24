@@ -1,2 +1,33 @@
-1) график субъективного восприятия шума человека (кривые равной громкости) для БЖД надо на низких частотах подбавлять громкость
-2) определить по графику коррекцию шумомера на чистоте 250 Гц А
+
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+			if(mTable.array[i].size == 0) { continue;}
+		if(mTable->array[i].compressed_size == 0) { fclose(f); continue;}
+		long unsigned int decompressed_len = mTable->array[i].size;
+		int e = uncompress(uncompressed_buffer, &decompressed_len, buffer, mTable->array[i].compressed_size);
+		printf("%s %s %d %ld\n", buffer, uncompressed_buffer, mTable->array[i].compressed_size, decompressed_len);
+		if (e != Z_OK) {
+			printf("Decompression failed with error code %d\n", e);
+			return;
+    	}
+		printf("%s %s %d %ld\n", buffer, uncompressed_buffer, mTable->array[i].compressed_size, decompressed_len);

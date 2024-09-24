@@ -16,6 +16,7 @@ FOLDERS  = ${subst /,\, ${folders}}
 
 DFlags += -D linux
 CFlags += -O3 
+LFlags += -L ./ -lz
 
 
 ifeq ($(OS),windows)
