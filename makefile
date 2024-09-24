@@ -40,7 +40,7 @@ libBuilder: ${OBJ}
 	ar rcs ${libpath}lib${Target}.a ${OBJ}
 
 binFile:
-	
+	for dir in $(folders) ; do if [ ! -d $$dir ]; then $(MKDIR) $$dir; fi; done
 
 ${bin}%.o: %.$(FORMAT)
 	${CC} ${IFlags} ${DFlags} -o $@ -c $< ${CFlags}
