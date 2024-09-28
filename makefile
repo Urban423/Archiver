@@ -1,7 +1,7 @@
 Target = myarc
 CC = gcc
 build = ./build/
-OS = windows
+OS = linux
 FORMAT = c
 
 

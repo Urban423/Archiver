@@ -370,15 +370,20 @@ Archive loadArchiveFromDirectory(const char* directory, char compression)
 			continue;
         }
 		mTable.array[i].compression = compression;
-		if(hTable.max_file_size < mTable.array[i].size) {
-			hTable.max_file_size = mTable.array[i].size;
-		}
+		int file_size = 0;
 		if(compression) {
 			 mTable.array[i].compressed_size = compressBound(mTable.array[i].size);
 			 total_size += mTable.array[i].compressed_size;
 		}
 		else {
 			total_size +=  mTable.array[i].size;
+		}
+		
+		if(hTable.max_file_size < mTable.array[i].size) {
+			hTable.max_file_size = mTable.array[i].size;
+		}
+		if(hTable.max_file_size < mTable.array[i].compressed_size) {
+			hTable.max_file_size = mTable.array[i].compressed_size;
 		}
     }
 	char* buffer = malloc(total_size);
@@ -478,11 +483,10 @@ Archive loadArchiveFromFile(const char* file)
 	for(int i = 0; i < mTable.size; i++)
 	{
 		fseek(f, mTable.array[i].offset, SEEK_SET);
-		e = fread(buffer + offset, mTable.array[i].size, 1, f);
-		offset += mTable.array[i].size;
+		e = fread(buffer + offset, mTable.array[i].compressed_size, 1, f);
+		offset += mTable.array[i].compressed_size;
 		mTable.array[i].offset -= hTable.total_size - hTable.total_files_size;
 	}
-	
 	
 	fclose(f);
 	hTable.max_length += strlen(file) + 1;
@@ -533,7 +537,7 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	int dir_len = strlen(directory);
 	int max_length = archive.hTable.max_length + dir_len + 2;
 	char* path = malloc(max_length);
-	char* uncompressed_buffer = malloc(10000);
+	char* uncompressed_buffer = malloc(archive.hTable.max_file_size);
 
 	memcpy(path, directory, dir_len);
 	path[dir_len] = '\0';
