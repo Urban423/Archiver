@@ -17,6 +17,7 @@ int main(int argc, char** argv)
 	const char* directory 	= NULL;
 	char read = 0;
 	char print = 0;
+	char compression = 0;
 	if(argc == 1)
 	{
 		printf("ERROR: no input data(use -help)\n");
@@ -43,6 +44,9 @@ int main(int argc, char** argv)
 		}
 		else if(strcmp(argv[i], "-p") == 0) {
 			print = 1;
+		}
+		else if(strcmp(argv[i], "-c") == 0) {
+			compression = 1;
 		}
 	}
 	
@@ -86,7 +90,7 @@ int main(int argc, char** argv)
 		saveArchiveAsDirectory(archive, directory);
 	}
 	else {
-		archive = loadArchiveFromDirectory(directory);
+		archive = loadArchiveFromDirectory(directory, compression);
 		if(print) {
 			printArchive(&archive, directory);
 		}

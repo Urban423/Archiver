@@ -30,8 +30,8 @@ endif
 
 
 buildApp: binFile clear appBuilder
-	${build}${Target} -p -w -f ${build}arhice.arc -d ./testDir
-	${build}${Target} -p -r -f ${build}arhice.arc -d ./
+	"${build}${Target}" -p -c -w -f ${build}arhice.arc -d ./testDir
+	"${build}${Target}" -p -c -r -f ${build}arhice.arc -d ./
 
 appBuilder: ${OBJ}
 	${CC} -o ${build}${Target} $^ ${resources} ${Libs} ${CFlags} ${LFlags}

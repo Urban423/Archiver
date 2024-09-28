@@ -94,7 +94,7 @@ typedef struct Archive {
 } Archive;
 
 
-Archive loadArchiveFromDirectory(const char* directory);
+Archive loadArchiveFromDirectory(const char* directory, char compression);
 Archive loadArchiveFromFile		(const char* file);
 void 	saveArchiveAsFile		(Archive  archive, const char* file);
 void	saveArchiveAsDirectory	(Archive  archive, const char* directory);

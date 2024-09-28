@@ -158,7 +158,7 @@ char ListDirectoryContents(
 					struct stat premission_stut;
 					stat(subDir, &premission_stut);
 					mode_t permission = premission_stut.st_mode;
-                    metadata data = {name_index, parent_index, 0, fileSize, 0, permission, 0, 1};
+                    metadata data = {name_index, parent_index, 0, fileSize, 0, permission, 0, 0};
                     addMetadata(mTable, data);
                 }
             }
@@ -255,24 +255,38 @@ void restoreDirectory(char* path, int size, int max_length, directory_table* dTa
 //restore files from archive
 void restoreFiles(char* buffer, char* uncompressed_buffer, head_table* hTable, string_table* sTable, directory_table* dTable, metadata_table* mTable, const char* path_start, char* path, int path_start_len)
 {
+	char* l;
+	FILE* f;
 	for(int i = 0; i < mTable->size; i++)
 	{
+		if(mTable->array[i].size == 0) { 
+			l = buildPathReverse(sTable, dTable,  mTable->array[i], path_start,  path, hTable->max_length + path_start_len);
+			f = fopen(l, "wb");
+			fclose(f);
+			continue;
+		}
 		//uncompress data
-		if(mTable->array[i].compressed_size == 0) { continue;}
+		
+		
 		long unsigned int decompressed_len = mTable->array[i].size;
-		int e = uncompress(uncompressed_buffer, &decompressed_len, buffer, mTable->array[i].compressed_size);
-		if (e != Z_OK) {
-			printf("Decompression failed with error code %d\n", e);
-			return;
-    	}
-		//printf("%s %s %d %ld\n", buffer, uncompressed_buffer, mTable->array[i].compressed_size, decompressed_len);
+		if(mTable->array[i].compression) {
+			int e = uncompress(uncompressed_buffer, &decompressed_len, buffer + mTable->array[i].offset, mTable->array[i].compressed_size);
+			if (e != Z_OK) {
+				printf("Decompression failed with error code %d\n", e);
+				return;
+			}
+		}
+		else {
+			uncompressed_buffer = buffer + mTable->array[i].offset;
+		}
+		//printf("%s %d %ld\n", uncompressed_buffer, mTable->array[i].compressed_size, decompressed_len);
 
 
 
 
 
-		char* l = buildPathReverse(sTable, dTable,  mTable->array[i], path_start,  path, hTable->max_length + path_start_len);
-		FILE* f = fopen(l, "wb");
+		l = buildPathReverse(sTable, dTable,  mTable->array[i], path_start,  path, hTable->max_length + path_start_len);
+		f = fopen(l, "wb");
 		if(f == NULL) {continue; }
 
 		int fd = fileno(f);
@@ -302,7 +316,7 @@ void restoreFiles(char* buffer, char* uncompressed_buffer, head_table* hTable, s
 
 
 
-Archive loadArchiveFromDirectory(const char* directory)
+Archive loadArchiveFromDirectory(const char* directory, char compression)
 {
 
 	long long 			signature 	= 0x4352416E61627255;
@@ -354,13 +368,18 @@ Archive loadArchiveFromDirectory(const char* directory)
         if (mTable.array[i].size == 0) {
             mTable.array[i].compressed_size = 0;
 			continue;
-        } else {
-            mTable.array[i].compressed_size = compressBound(mTable.array[i].size);
         }
+		mTable.array[i].compression = compression;
 		if(hTable.max_file_size < mTable.array[i].size) {
 			hTable.max_file_size = mTable.array[i].size;
 		}
-        total_size += mTable.array[i].compressed_size;
+		if(compression) {
+			 mTable.array[i].compressed_size = compressBound(mTable.array[i].size);
+			 total_size += mTable.array[i].compressed_size;
+		}
+		else {
+			total_size +=  mTable.array[i].size;
+		}
     }
 	char* buffer = malloc(total_size);
 	char* read_buffer = malloc(hTable.max_file_size);
@@ -379,10 +398,13 @@ Archive loadArchiveFromDirectory(const char* directory)
 			mTable.array[i].compressed_size = compressed_file_size;
 		}
 		else {
+			memcpy(buffer + byte_offset, read_buffer, mTable.array[i].size);
+			mTable.array[i].compressed_size = mTable.array[i].size;
 			byte_offset += mTable.array[i].size;
 		}
 		fclose(fTable.array[i]);
 	};
+	total_size = byte_offset;
 	
 	Tables[2].size 		= mTable.size * sizeof(metadata);
 	Tables[2].offset 	= head_size - Tables[2].size;
@@ -430,8 +452,7 @@ Archive loadArchiveFromFile(const char* file)
 	fseek(f, hTable.offset_table_offset, SEEK_SET);
 	e = fread(Tables, sizeof(offset_table) * hTable.number_of_tables, 1, f);
 	
-	for(int i = 0; i < hTable.number_of_tables; i++)
-	{
+	for(int i = 0; i < hTable.number_of_tables; i++) {
 		fseek(f, Tables[i].offset, SEEK_SET);
 		switch(Tables[i].tag)
 		{
@@ -452,16 +473,14 @@ Archive loadArchiveFromFile(const char* file)
 			}
 		}
 	}
-	for(int i = 0; i < mTable.size; i++) {
-		total_size += mTable.array[i].size;
-	}
 	int  offset = 0;
-	char* buffer = malloc(total_size + 1000);
+	char* buffer = malloc(hTable.total_files_size);
 	for(int i = 0; i < mTable.size; i++)
 	{
 		fseek(f, mTable.array[i].offset, SEEK_SET);
-		e = fread(buffer, mTable.array[i].size, 1, f);
+		e = fread(buffer + offset, mTable.array[i].size, 1, f);
 		offset += mTable.array[i].size;
+		mTable.array[i].offset -= hTable.total_size - hTable.total_files_size;
 	}
 	
 	
@@ -504,7 +523,6 @@ void saveArchiveAsFile(Archive archive, const char* file)
 	memcpy(buffer  + hTable.offset_table_offset, Tables, 	sizeof(offset_table) * hTable.number_of_tables);	// offset tables
 	memcpy(buffer  + 8, &hTable, 	sizeof(head_table));	// head table
 	
-	
 	FILE* result_file = fopen(file, "wb");
 	fwrite(buffer, archive.hTable.total_size, 1, result_file);
 	fclose(result_file);
@@ -515,7 +533,7 @@ void saveArchiveAsDirectory(Archive archive, const char* directory)
 	int dir_len = strlen(directory);
 	int max_length = archive.hTable.max_length + dir_len + 2;
 	char* path = malloc(max_length);
-	char* uncompressed_buffer = malloc(archive.hTable.max_file_size);
+	char* uncompressed_buffer = malloc(10000);
 
 	memcpy(path, directory, dir_len);
 	path[dir_len] = '\0';
