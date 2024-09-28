@@ -1,7 +1,7 @@
 Target = myarc
 CC = gcc
 build = ./build/
-OS = linux
+OS = windows
 FORMAT = c
 
 
@@ -14,16 +14,16 @@ OBJ += ${patsubst %.$(FORMAT),${bin}%.o, ${SCR}}
 OBJ_DEL += ${subst /,\, ${OBJ}}
 FOLDERS  = ${subst /,\, ${folders}}
 
-DFlags += -D linux
+DFlags += -D $(OS)
 CFlags += -O3 
 LFlags += -L ./ -lz
 
 
 ifeq ($(OS),windows)
-    MKDIR = mkdir
+    MKDIR = @for %%d in ($(FOLDERS)) do if not exist %%d mkdir %%d
 	DEL= del
 else
-    MKDIR = mkdir -p
+    MKDIR = for dir in $(folders) ; do if [ ! -d $$dir ]; then mkdir -p $$dir; fi; done
 	DEL = rm -f
 endif
 
@@ -40,7 +40,7 @@ libBuilder: ${OBJ}
 	ar rcs ${libpath}lib${Target}.a ${OBJ}
 
 binFile:
-	for dir in $(folders) ; do if [ ! -d $$dir ]; then $(MKDIR) $$dir; fi; done
+	$(MKDIR)
 
 ${bin}%.o: %.$(FORMAT)
 	${CC} ${IFlags} ${DFlags} -o $@ -c $< ${CFlags}
